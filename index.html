@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>TQQQ 밸류 리밸런싱</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'SF Pro Display',sans-serif;background:#eef2f8;min-height:100vh;font-size:13px}
+/* Header */
+.hdr{background:linear-gradient(150deg,#1e3a5f,#1d4ed8);color:#fff;padding:16px 18px 0;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.hdr h1{font-size:17px;font-weight:700;letter-spacing:-.4px}
+.hdr p{font-size:10.5px;opacity:.65;margin:2px 0 14px}
+.tabs{display:flex;gap:2px;overflow-x:auto}
+.tab{padding:7px 15px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:rgba(255,255,255,.75);border-radius:8px 8px 0 0;transition:.15s;white-space:nowrap;font-family:inherit}
+.tab.on{background:#fff;color:#1e3a5f}
+/* Layout */
+.content{padding:14px}
+.pnl{display:none}.pnl.on{display:block}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 10px rgba(0,0,0,.09);overflow:hidden}
+/* Table 1 */
+.twrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.main{border-collapse:collapse;min-width:max-content;font-size:11px}
+table.main th{padding:7px;text-align:center;font-weight:600;color:#1e3a5f;border-bottom:2px solid #b8d0ee;white-space:nowrap;background:#ddeafa;font-size:10.5px}
+table.main td{border-bottom:1px solid #e2e8f0;white-space:nowrap;padding:0}
+table.main tr:nth-child(even){background:#f8fbff}
+/* Editable cell */
+.ec{background:#fff;padding:2px 3px}
+.ec input{width:70px;font-size:11px;border:1px solid #ccd8ee;border-radius:4px;padding:3px 5px;text-align:right;background:transparent;outline:none;font-family:inherit}
+.ec input.dt{width:112px}
+.ec input.sm{width:52px}
+/* Calculated cell */
+.cc{padding:5px 7px;text-align:center;font-size:11px;white-space:nowrap}
+.c-id{background:#ebf5ff;color:#1a56db;font-weight:700}
+.c-bl{background:#ebf5ff;color:#1a56db}
+.c-gn{background:#ecfdf5;color:#065f46;font-weight:700}
+.c-rd{background:#fff1f2;color:#b91c1c}
+.c-am{background:#fffbeb;color:#92400e}
+.c-pos{background:#ecfdf5;color:#065f46;font-weight:700}
+.c-neg{background:#fff1f2;color:#b91c1c;font-weight:700}
+/* Del btn */
+.del{background:none;border:none;cursor:pointer;color:#ccc;font-size:13px;padding:2px 7px;font-family:inherit}
+.del:hover{color:#e02424}
+/* Legend */
+.leg{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:10.5px;color:#6b7280;align-items:center}
+.ldot{width:12px;height:12px;border:1px solid #ccd8ee;border-radius:2px;display:inline-block;flex-shrink:0}
+/* Buttons */
+.btnrow{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+.btn-p{background:#1a56db;color:#fff;box-shadow:0 2px 8px rgba(26,86,219,.3)}
+.btn-d{background:#fff;color:#b91c1c;border:1px solid #b91c1c}
+.btn-s{background:#fff;color:#065f46;border:1px solid #065f46}
+/* Formula */
+.fml{margin-top:12px;padding:12px 14px;background:#fff;border-radius:10px;font-size:11px;color:#555;box-shadow:0 1px 5px rgba(0,0,0,.06);line-height:2}
+.fml strong{color:#1e3a5f}
+code{background:#f0f4ff;padding:1px 5px;border-radius:3px;font-size:10.5px}
+/* Table 2 */
+.t2grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.sub-hdr{padding:12px 16px;border-bottom:2px solid}
+.sub-hdr h3{font-size:14px;font-weight:700;margin-bottom:3px}
+.sub-hdr p{font-size:11px;color:#555}
+.sub-hdr small{font-size:10px;color:#888;display:block;margin-top:2px}
+table.sub{border-collapse:collapse;width:100%;font-size:12px}
+table.sub th{padding:8px 10px;text-align:center;font-weight:600;border-bottom:1px solid;font-size:11px}
+table.sub td{padding:6px 10px;text-align:center;border-bottom:1px solid}
+/* Buy card */
+.buy-hdr{background:#dcfce7;border-color:#86efac}
+.buy-hdr h3{color:#065f46}
+table.sub.buy th{color:#065f46;border-color:#bbf7d0;background:#f0fdf4}
+table.sub.buy td{border-color:#d1fae5}
+table.sub.buy tr:first-child td{background:#f0fdf4;font-weight:700;color:#065f46}
+.p-gn{color:#065f46}
+/* Sell card */
+.sel-hdr{background:#fee2e2;border-color:#fca5a5}
+.sel-hdr h3{color:#b91c1c}
+table.sub.sel th{color:#b91c1c;border-color:#fecaca;background:#fff5f5}
+table.sub.sel td{border-color:#fee2e2}
+table.sub.sel tr:first-child td{background:#fff5f5;font-weight:700;color:#b91c1c}
+.p-rd{color:#b91c1c}
+/* Chart */
+.cht-card{padding:20px}
+.cht-card h2{font-size:15px;font-weight:700;color:#1e3a5f;margin-bottom:3px}
+.cht-card p{font-size:11px;color:#6b7280;margin-bottom:18px}
+.cht-wrap{position:relative;height:360px}
+.scards{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.sc{flex:1 1 100px;border-radius:10px;padding:12px 14px;text-align:center}
+.sc label{font-size:10.5px;color:#6b7280;display:block;margin-bottom:3px}
+.sc span{font-size:16px;font-weight:700}
+.sc-bl{background:#ebf5ff}.sc-bl span{color:#1a56db}
+.sc-rd{background:#fff1f2}.sc-rd span{color:#b91c1c}
+.sc-am{background:#fffbeb}.sc-am span{color:#92400e}
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(30,58,95,.92);color:#fff;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);pointer-events:none;z-index:999;display:none}
+.empty{padding:28px;text-align:center;color:#aaa;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>📈 TQQQ 밸류 리밸런싱</h1>
+  <p>라오어 밸류리밸런싱 투자 관리 · 데이터 자동 저장</p>
+  <div class="tabs">
+    <button class="tab on" onclick="showTab('t1',this)">표1 · 투자현황</button>
+    <button class="tab" onclick="showTab('t2',this)">표2 · 매수/매도</button>
+    <button class="tab" onclick="showTab('cht',this)">차트</button>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- PANEL 1 -->
+<div class="pnl on" id="pnl-t1">
+  <div class="card"><div class="twrap">
+    <table class="main">
+      <thead><tr>
+        <th>회차</th><th>투자일</th><th>V1</th><th>E(평가액)</th>
+        <th>주식수</th><th>주가($)</th><th>평단($)</th><th>수수료($)</th>
+        <th>누적매입가($)</th><th>당기매입가($)</th><th>당기매입수</th><th>당기매매단가</th>
+        <th>Pool이전($)</th><th>환율(₩/$)</th><th>input(₩)</th><th>input($)</th>
+        <th>과외수입($)</th><th>Pool현재($)</th><th>V2</th>
+        <th>최대경계</th><th>최소경계</th><th>현총액($)</th>
+        <th>수익금($)</th><th>수익률(%)</th><th>삭제</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div></div>
+
+  <div class="leg">
+    <span><span class="ldot" style="background:#fff"></span> 직접 입력</span>
+    <span><span class="ldot" style="background:#ebf5ff"></span> 자동 계산</span>
+    <span><span class="ldot" style="background:#ecfdf5"></span> V2 (밸류)</span>
+    <span><span class="ldot" style="background:#fff1f2"></span> 최대경계</span>
+    <span><span class="ldot" style="background:#fffbeb"></span> 최소경계</span>
+  </div>
+  <div class="btnrow">
+    <button class="btn btn-p" onclick="addRow()">＋ 2주 후 행 추가</button>
+    <button class="btn btn-s" onclick="dlHTML()">💾 HTML 파일로 저장</button>
+    <button class="btn btn-d" onclick="resetAll()">초기화</button>
+  </div>
+  <div class="fml">
+    <strong>📐 수식 안내</strong><br>
+    <code>V2 = V1 + Pool이전÷11 + (E−V1)÷6.632 + input($)</code><br>
+    <code>Pool현재 = Pool이전 + input($) + 과외수입 − 당기매입가</code><br>
+    최대경계 = V2×1.15 &nbsp;|&nbsp; 최소경계 = V2×0.88 &nbsp;|&nbsp; input($) = ₩500,000 ÷ 환율
+  </div>
+</div>
+
+<!-- PANEL 2 -->
+<div class="pnl" id="pnl-t2">
+  <div class="t2grid">
+    <div class="card">
+      <div class="sub-hdr buy-hdr">
+        <h3>📉 매수표 (표2-1)</h3>
+        <p>최소경계선: <strong id="lb-min">—</strong> &nbsp;|&nbsp; Pool현재: <strong id="lb-pool">—</strong></p>
+        <small>주가 ≤ 최소경계 시 아래 단가에서 5주씩 매수</small>
+      </div>
+      <table class="sub buy"><thead><tr><th>주식개수</th><th>단가($)</th><th>Pool잔액($)</th></tr></thead>
+      <tbody id="buy-tb"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="sub-hdr sel-hdr">
+        <h3>📈 매도표 (표2-2)</h3>
+        <p>최대경계선: <strong id="lb-max">—</strong> &nbsp;|&nbsp; Pool현재: <strong id="lb-pool2">—</strong></p>
+        <small>주가 ≥ 최대경계 시 아래 단가에서 2주씩 매도</small>
+      </div>
+      <table class="sub sel"><thead><tr><th>주식개수</th><th>단가($)</th><th>Pool잔액($)</th></tr></thead>
+      <tbody id="sel-tb"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL 3 -->
+<div class="pnl" id="pnl-cht">
+  <div class="card cht-card">
+    <h2>📊 밸류 & 경계선 추이</h2>
+    <p>투자 회차별 V2 · 최대경계 · 최소경계 (Y축 ±10% 마진)</p>
+    <div class="cht-wrap"><canvas id="myChart"></canvas></div>
+    <div class="scards" id="scards"></div>
+  </div>
+</div>
+
+</div><!-- /content -->
+<div id="toast"></div>
+
+<script>
+const KRW = 500000;
+let rows = [], chart = null;
+
+// ── 계산 ──────────────────────────────────────────────────
+const N = v => isNaN(+v)||v===""?0:+v;
+const F = (v,d=2) => (+v||0).toFixed(d);
+
+function derive(r){
+  const v1=N(r.v1),e=N(r.e),pp=N(r.poolPrev),ext=N(r.extraIncome),cp=N(r.currentPurchase);
+  const sh=N(r.shares),px=N(r.stockPrice),cum=N(r.cumulativePurchase),ex=N(r.exchangeRate);
+  const iUSD = ex>0 ? KRW/ex : 0;
+  const pc = pp + iUSD + ext - cp;
+  const v2 = v1 + pp/11 + (e-v1)/6.632 + iUSD;
+  const maxB=v2*1.15, minB=v2*0.88;
+  const tot=sh*px, pft=tot-cum, ret=cum>0?(pft/cum)*100:0;
+  return {iUSD,pc,v2,maxB,minB,tot,pft,ret};
+}
+
+function calcBuy(sh,pool){
+  if(!sh||pool<=0) return [];
+  const r=[{sh,pr:null,pool}]; let s=sh,p=pool;
+  for(let i=0;i<400;i++){
+    const pr=p/s, np=p-pr*5; if(np<=0) break;
+    s+=5; p=np; r.push({sh:s,pr,pool:p});
+  }
+  return r;
+}
+
+function calcSell(sh,pool){
+  if(!sh||!pool) return [];
+  const r=[{sh,pr:null,pool}]; let s=sh,p=pool;
+  for(let i=0;i<10;i++){const pr=p/s,np=p+pr*2;s-=2;p=np;r.push({sh:s,pr,pool:p});}
+  return r;
+}
+
+function addDays(ds,n){const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];}
+
+function blank(id,date,v1="",pp=""){
+  return {id,date,v1,e:"",shares:"",stockPrice:"",avgPrice:"",commission:"",
+    cumulativePurchase:"",currentPurchase:"",currentSharesBought:"",currentTradePrice:"",
+    poolPrev:pp,exchangeRate:"",extraIncome:"0"};
+}
+
+// ── 저장/로드 ──────────────────────────────────────────────
+function save(){try{localStorage.setItem("tqqq_vr3",JSON.stringify(rows));}catch(e){}}
+function load(){
+  try{
+    if(window.__DATA__){rows=window.__DATA__;return;}
+    const d=localStorage.getItem("tqqq_vr3");
+    rows=d?JSON.parse(d):[blank(1,"2026-05-15")];
+  }catch(e){rows=[blank(1,"2026-05-15")];}
+}
+
+// ── 테이블1 렌더 ───────────────────────────────────────────
+function renderTable(){
+  const tb=document.getElementById("tbody");
+  tb.innerHTML=rows.map((r,i)=>{
+    const d=derive(r),id=r.id;
+    const pc=d.pft>=0?"c-pos":"c-neg";
+    return `<tr>
+<td class="cc c-id">${id}</td>
+<td class="ec"><input class="dt" type="date" value="${r.date}" onchange="upd(${i},'date',this.value)"></td>
+<td class="ec"><input value="${r.v1}" placeholder="0.00" oninput="upd(${i},'v1',this.value)"></td>
+<td class="ec"><input value="${r.e}" placeholder="0.00" oninput="upd(${i},'e',this.value)"></td>
+<td class="ec"><input class="sm" value="${r.shares}" placeholder="0" oninput="upd(${i},'shares',this.value)"></td>
+<td class="ec"><input value="${r.stockPrice}" placeholder="0.00" oninput="upd(${i},'stockPrice',this.value)"></td>
+<td class="ec"><input value="${r.avgPrice}" placeholder="0.00" oninput="upd(${i},'avgPrice',this.value)"></td>
+<td class="ec"><input value="${r.commission}" placeholder="0.00" oninput="upd(${i},'commission',this.value)"></td>
+<td class="ec"><input value="${r.cumulativePurchase}" placeholder="0.00" oninput="upd(${i},'cumulativePurchase',this.value)"></td>
+<td class="ec"><input value="${r.currentPurchase}" placeholder="0.00" oninput="upd(${i},'currentPurchase',this.value)"></td>
+<td class="ec"><input class="sm" value="${r.currentSharesBought}" placeholder="0" oninput="upd(${i},'currentSharesBought',this.value)"></td>
+<td class="ec"><input value="${r.currentTradePrice}" placeholder="0.00" oninput="upd(${i},'currentTradePrice',this.value)"></td>
+<td class="ec"><input value="${r.poolPrev}" placeholder="0.00" oninput="upd(${i},'poolPrev',this.value)"></td>
+<td class="ec"><input value="${r.exchangeRate}" placeholder="1400" oninput="upd(${i},'exchangeRate',this.value)"></td>
+<td class="cc c-bl">₩${KRW.toLocaleString()}</td>
+<td class="cc c-bl" id="c${id}-iusd">${F(d.iUSD)}</td>
+<td class="ec"><input value="${r.extraIncome}" placeholder="0.00" oninput="upd(${i},'extraIncome',this.value)"></td>
+<td class="cc c-bl" id="c${id}-pc">${F(d.pc)}</td>
+<td class="cc c-gn" id="c${id}-v2">${F(d.v2)}</td>
+<td class="cc c-rd" id="c${id}-mb">${F(d.maxB)}</td>
+<td class="cc c-am" id="c${id}-nb">${F(d.minB)}</td>
+<td class="cc c-bl" id="c${id}-tot">${F(d.tot)}</td>
+<td class="cc ${pc}" id="c${id}-pft">${F(d.pft)}</td>
+<td class="cc ${pc}" id="c${id}-ret">${F(d.ret)}%</td>
+<td style="text-align:center;border-bottom:1px solid #e2e8f0"><button class="del" onclick="delRow(${i})">✕</button></td>
+</tr>`;
+  }).join("");
+}
+
+// ── 필드 업데이트 (리렌더 없이) ────────────────────────────
+function upd(i,f,v){
+  rows[i][f]=v;
+  const r=rows[i],d=derive(r),id=r.id;
+  const set=(sfx,val)=>{const el=document.getElementById(`c${id}-${sfx}`);if(el)el.textContent=val;};
+  set("iusd",F(d.iUSD)); set("pc",F(d.pc)); set("v2",F(d.v2));
+  set("mb",F(d.maxB)); set("nb",F(d.minB)); set("tot",F(d.tot));
+  set("pft",F(d.pft)); set("ret",F(d.ret)+"%");
+  const pc=d.pft>=0?"c-pos":"c-neg";
+  ["pft","ret"].forEach(s=>{const el=document.getElementById(`c${id}-${s}`);if(el)el.className=`cc ${pc}`;});
+  if(i===rows.length-1) renderBS(d);
+  updateChart(); save();
+}
+
+// ── 행 추가/삭제 ───────────────────────────────────────────
+function addRow(){
+  const last=rows[rows.length-1],d=derive(last);
+  rows.push(blank(rows.length+1,addDays(last.date,14),
+    d.v2?d.v2.toFixed(6):"", d.pc?d.pc.toFixed(6):""));
+  renderTable(); save(); toast("2주 후 행이 추가됐습니다 ✓");
+}
+function delRow(i){
+  if(rows.length===1){toast("마지막 행은 삭제할 수 없습니다");return;}
+  rows.splice(i,1); rows.forEach((r,j)=>r.id=j+1);
+  renderTable(); updateChart(); save();
+}
+function resetAll(){
+  if(!confirm("모든 데이터를 초기화할까요?")) return;
+  rows=[blank(1,"2026-05-15")]; renderTable(); renderBS(derive(rows[0])); updateChart(); save(); toast("초기화 완료");
+}
+
+// ── 탭 ────────────────────────────────────────────────────
+function showTab(t,btn){
+  document.querySelectorAll(".pnl").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("on"));
+  document.getElementById("pnl-"+t).classList.add("on"); btn.classList.add("on");
+  if(t==="cht") updateChart();
+  if(t==="t2") renderBS(derive(rows[rows.length-1]));
+}
+
+// ── 매수/매도 테이블 ───────────────────────────────────────
+function renderBS(d){
+  const sh=N(rows[rows.length-1].shares), pool=d.pc;
+  const fmt=v=>pool?F(v):"—";
+  document.getElementById("lb-min").textContent="$"+fmt(d.minB);
+  document.getElementById("lb-max").textContent="$"+fmt(d.maxB);
+  document.getElementById("lb-pool").textContent="$"+fmt(pool);
+  document.getElementById("lb-pool2").textContent="$"+fmt(pool);
+
+  const buyD=calcBuy(sh,pool), selD=calcSell(sh,pool);
+  const buyTb=document.getElementById("buy-tb"), selTb=document.getElementById("sel-tb");
+
+  buyTb.innerHTML=buyD.length?buyD.map(r=>`<tr><td>${r.sh}</td><td class="p-gn">${r.pr!=null?F(r.pr):"—"}</td><td>${F(r.pool)}</td></tr>`).join("")
+    :`<tr><td colspan="3" class="empty">표1 마지막 행에 주식수·Pool현재 입력 후 생성됩니다</td></tr>`;
+  selTb.innerHTML=selD.length?selD.map(r=>`<tr><td>${r.sh}</td><td class="p-rd">${r.pr!=null?F(r.pr):"—"}</td><td>${F(r.pool)}</td></tr>`).join("")
+    :`<tr><td colspan="3" class="empty">표1 마지막 행에 주식수·Pool현재 입력 후 생성됩니다</td></tr>`;
+}
+
+// ── 차트 ──────────────────────────────────────────────────
+function updateChart(){
+  const data=rows.map((r,i)=>{const d=derive(r);return{nm:`${r.id}회차`,v2:d.v2,max:d.maxB,min:d.minB};}).filter(x=>x.v2);
+  if(!data.length) return;
+  const allV=data.flatMap(d=>[d.v2,d.max,d.min]);
+  const yMin=Math.min(...allV)*0.9, yMax=Math.max(...allV)*1.1;
+  const labels=data.map(d=>d.nm);
+  if(chart){
+    chart.data.labels=labels;
+    chart.data.datasets[0].data=data.map(d=>d.v2);
+    chart.data.datasets[1].data=data.map(d=>d.max);
+    chart.data.datasets[2].data=data.map(d=>d.min);
+    chart.options.scales.y.min=yMin; chart.options.scales.y.max=yMax;
+    chart.update();
+  } else {
+    const ctx=document.getElementById("myChart").getContext("2d");
+    chart=new Chart(ctx,{type:"line",data:{labels,datasets:[
+      {label:"V2 (밸류)",data:data.map(d=>d.v2),borderColor:"#1a56db",backgroundColor:"rgba(26,86,219,.07)",borderWidth:2.5,pointRadius:5,tension:.2},
+      {label:"최대경계선",data:data.map(d=>d.max),borderColor:"#b91c1c",borderDash:[7,3],borderWidth:1.5,pointRadius:3,tension:.2},
+      {label:"최소경계선",data:data.map(d=>d.min),borderColor:"#d97706",borderDash:[7,3],borderWidth:1.5,pointRadius:3,tension:.2},
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        y:{min:yMin,max:yMax,ticks:{callback:v=>`$${(+v).toFixed(0)}`,font:{size:10}},grid:{color:"#eaf0f8"}},
+        x:{ticks:{font:{size:11}},grid:{color:"#eaf0f8"}}
+      },
+      plugins:{legend:{labels:{font:{size:12}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${(+c.parsed.y).toFixed(2)}`}}}
+    }});
+  }
+  const last=data[data.length-1];
+  document.getElementById("scards").innerHTML=
+    `<div class="sc sc-bl"><label>최근 V2</label><span>$${F(last.v2)}</span></div>
+     <div class="sc sc-rd"><label>최대경계</label><span>$${F(last.max)}</span></div>
+     <div class="sc sc-am"><label>최소경계</label><span>$${F(last.min)}</span></div>`;
+}
+
+// ── HTML 파일 저장 ─────────────────────────────────────────
+function dlHTML(){
+  const dataTag=`<script>window.__DATA__=${JSON.stringify(rows)};<\/script>`;
+  let html=document.documentElement.outerHTML;
+  html=html.replace('</head>',dataTag+'</head>');
+  html='<!DOCTYPE html>\n<html lang="ko">\n'+html.replace(/^<html[^>]*>/,'');
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='TQQQ_밸류리밸런싱.html';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast("TQQQ_밸류리밸런싱.html 저장 완료 ✓");
+}
+
+// ── 토스트 ─────────────────────────────────────────────────
+function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.style.display="block";setTimeout(()=>el.style.display="none",2400);}
+
+// ── 시작 ───────────────────────────────────────────────────
+load(); renderTable(); renderBS(derive(rows[rows.length-1]));
+</script>
+</body>
+</html>
